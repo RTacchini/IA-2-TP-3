@@ -14,6 +14,11 @@ from SmallCactus import SmallCactus
 from LargeCactus import LargeCactus
 from Genetic import updateNetwork
 from ImageCapture import ImageCapture
+from tensorflow.keras.models import load_model
+import numpy as np
+from PIL import Image
+
+model = load_model("modelo_dino.h5")
 
 screen_spawn_position = (100, 100)
 os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % screen_spawn_position

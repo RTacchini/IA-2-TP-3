@@ -11,6 +11,7 @@ import os
 import glob
 from NeuralNetwork import NeuralNetwork
 import numpy as np
+import json
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 
 # Bring images from assets
@@ -177,18 +178,28 @@ class Dinosaur(NeuralNetwork):
     # When playing in automatic mode using the tensorflow model, takes a frame and sends it to the model to define the next action
     def predict(self):
         self.autoPlay = True
+
+        # Cargar mapeo de clase (index -> nombre)
+        with open("class_indices.json", "r") as f:
+            class_indices = json.load(f)
+        index_to_class = {v: k for k, v in class_indices.items()}
         
         # Take a screenshot and arrange the image
         # ===================== ARREGLAR TAMAÑO DE IMAGEN, NORMALIZACIÓN Y CANTIDAD DE CLASES PREDICHAS DE SER NECESARIO ===============
-        img = load_img("./images/live/temp.png", color_mode='grayscale', target_size=(600,400))
+        img = load_img("./images/live/temp.png", color_mode='grayscale', target_size=(128, 200))
         img_array = img_to_array(img)
         img_array = img_array / 255.0  # Normaliza los valores de píxeles entre 0 y 1
         img_array = np.expand_dims(img_array, axis=0)  # Agrega una dimensión extra para el batch
 
-        # Use the model to make a decision based on the screenshot
+        # Hacer predicción
         predictions = self.model.predict(img_array)
-        predicted_class_index = np.argmax(predictions)
-        # ==============================================================================================================================
+        predicted_class_index = int(np.argmax(predictions))  # Asegurar que sea int
+        predicted_label = index_to_class[predicted_class_index]
 
-        # Call the update method with the result
-        self.update(CLASSES[predicted_class_index])
+        # Llamar a update con la acción correcta
+        if predicted_label == "up":
+            self.update("JUMP")
+        elif predicted_label == "down":
+            self.update("DUCK")
+        elif predicted_label == "right":
+            self.update("RUN")

@@ -9,115 +9,102 @@ except ImportError as err:
 from tensorflow.keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array
 import os
 import random
+import matplotlib.pyplot as plt
+import json 
 
-# Rutas de las carpetas
+# Rutas
 source_dir = "images"
+train_dir = os.path.join(source_dir, "train")
+test_dir = os.path.join(source_dir, "test")
 
-train_dir = source_dir + "/train/"
-test_dir = source_dir + "/test/"
-
-# Clases (nombres de las subcarpetas)
+# Clases
 classes = ["up", "down", "right"]
 
-# Crea los directorios de entrenamiento y prueba si no existen
-os.makedirs(train_dir, exist_ok=True)
-os.makedirs(test_dir, exist_ok=True)
+# Crear carpetas necesarias
+for base_dir in [train_dir, test_dir]:
+    for class_name in classes:
+        os.makedirs(os.path.join(base_dir, class_name), exist_ok=True)
 
-# Crea los directorios de entrenamiento y prueba si no existen
-os.makedirs(train_dir + classes[0], exist_ok=True)
-os.makedirs(train_dir + classes[1], exist_ok=True)
-os.makedirs(train_dir + classes[2], exist_ok=True)
-os.makedirs(test_dir + classes[0], exist_ok=True)
-os.makedirs(test_dir + classes[1], exist_ok=True)
-os.makedirs(test_dir + classes[2], exist_ok=True)
-
-# Proporción de imágenes para entrenamiento y prueba
+# Parámetros
 train_ratio = 0.8
-
-# Parámetros para el modelo
 batch_size = 32
-image_size = (600, 400)
-input_shape = image_size + (1,)  # Tamaño de la imagen con un solo canal para escala de grises
+image_size = (128, 200)
+input_shape = image_size + (1,)  # Grayscale = 1 canal
 
-# Función para cargar imágenes y convertirlas a escala de grises
+# Cargar y normalizar imágenes en escala de grises
 def load_and_preprocess_image(file_path, target_size):
     img = load_img(file_path, color_mode='grayscale', target_size=target_size)
     img_array = img_to_array(img)
-    return img_array / 255.0  # Normaliza los valores de píxeles entre 0 y 1
+    return img_array
 
-# Iterar sobre las subcarpetas
+# Distribuir imágenes en train/test
 for class_name in classes:
-    # Ruta de la subcarpeta de origen
     source_class_dir = os.path.join(source_dir, class_name)
-    
-    # Obtener la lista de imágenes en la subcarpeta de origen
     images = os.listdir(source_class_dir)
-    
-    # Mezclar aleatoriamente las imágenes
     random.shuffle(images)
-    
-    # Calcular el número de imágenes para entrenamiento
-    num_train_images = int(len(images) * train_ratio)
-    
-    # Iterar sobre las imágenes para entrenamiento
-    for img_name in images[:num_train_images]:
-        # Ruta de la imagen de origen
-        src_img_path = os.path.join(source_class_dir, img_name)
-        # Ruta de destino para la imagen de entrenamiento
-        dest_train_path = os.path.join(train_dir + class_name, f"{img_name}")
-        # Mover la imagen a la carpeta de entrenamiento y renombrarla
-        img_array = load_and_preprocess_image(src_img_path, image_size)
-        tf.keras.preprocessing.image.save_img(dest_train_path, img_array)
-    
-    # Iterar sobre las imágenes para prueba
-    for img_name in images[num_train_images:]:
-        # Ruta de la imagen de origen
-        src_img_path = os.path.join(source_class_dir, img_name)
-        # Ruta de destino para la imagen de prueba
-        dest_test_path = os.path.join(test_dir + class_name, f"{img_name}")
-        # Mover la imagen a la carpeta de prueba y renombrarla
-        img_array = load_and_preprocess_image(src_img_path, image_size)
-        tf.keras.preprocessing.image.save_img(dest_test_path, img_array)
+    num_train = int(len(images) * train_ratio)
 
-# Crear generadores de datos
-train_datagen = ImageDataGenerator(rescale=1./255)
-train_generator = train_datagen.flow_from_directory(
+    for i, img_name in enumerate(images):
+        src = os.path.join(source_class_dir, img_name)
+        dst_base = train_dir if i < num_train else test_dir
+        dst = os.path.join(dst_base, class_name, img_name)
+        img_array = load_and_preprocess_image(src, image_size)
+
+        # Mostrar una imagen para verificar
+        if i == 0 and dst_base == train_dir:  # Solo muestra una vez por clase
+            plt.imshow(img_array.squeeze(), cmap='gray')
+            plt.title(f"Clase: {class_name} - Imagen: {img_name}")
+            plt.axis('off')
+            plt.show()
+
+        tf.keras.preprocessing.image.save_img(dst, img_array, scale=False)
+
+# Generadores
+datagen = ImageDataGenerator(rescale=1./255)
+
+train_generator = datagen.flow_from_directory(
     train_dir,
     target_size=image_size,
     batch_size=batch_size,
-    class_mode='categorical',
-    color_mode='grayscale')  # Se especifica el modo de color escala de grises
+    class_mode='sparse',
+    color_mode='grayscale',
+    shuffle=True
+)
 
-validation_datagen = ImageDataGenerator(rescale=1./255)
-validation_generator = validation_datagen.flow_from_directory(
+# Mostrar e imprimir el mapeo
+print("Índices de clase asignados:", train_generator.class_indices)
+
+# Guardar el mapeo a un archivo JSON
+with open("class_indices.json", "w") as f:
+    json.dump(train_generator.class_indices, f)
+
+validation_generator = datagen.flow_from_directory(
     test_dir,
     target_size=image_size,
     batch_size=batch_size,
-    class_mode='categorical',
-    color_mode='grayscale')  # Se especifica el modo de color escala de grises
+    class_mode='sparse',
+    color_mode='grayscale',
+    shuffle=True
+)
 
-# ========================== Construir el modelo ==========================================
+# Modelo convolucional
 model = tf.keras.models.Sequential([
     tf.keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=input_shape),
-    tf.keras.layers.MaxPooling2D((2, 2)),
+    tf.keras.layers.MaxPooling2D(),
     tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
-    tf.keras.layers.MaxPooling2D((2, 2)),
-    tf.keras.layers.Conv2D(128, (3, 3), activation='relu'),
-    tf.keras.layers.MaxPooling2D((2, 2)),
+    tf.keras.layers.MaxPooling2D(),
     tf.keras.layers.Flatten(),
-    tf.keras.layers.Dense(128, activation='relu'),
-    tf.keras.layers.Dropout(0.5),
-    tf.keras.layers.Dense(len(classes), activation='softmax')
+    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dense(3, activation='softmax')
 ])
-# ==========================================================================================
 
-# Compilar el modelo
+# Compilación
 model.compile(optimizer='adam',
-              loss='categorical_crossentropy',
+              loss='sparse_categorical_crossentropy',
               metrics=['accuracy'])
 
-# Entrenar el modelo
-model.fit(train_generator, epochs=10, validation_data=validation_generator)
+# Entrenamiento
+model.fit(train_generator, validation_data=validation_generator, epochs=10)
 
-# Guardar el modelo
-model.save('tensorflow_nn.h5')
+# Guardado del modelo
+model.save('modelo_dino.h5')

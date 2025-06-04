@@ -150,12 +150,28 @@ def gameScreen():
                 if dino.alive:
                     dino.draw(SCREEN)
                 
-                for obstacle in obstacles:
-                    obstacle_params = obstacle.rect
-                    dino_params = dino.dino_rect
-                    # ========================== ACTUALIZAR LA FUNCIÓN 'think' CON LOS PARÁMETROS DE ENTRADA DE LA RED ===================
-                    dino.update(dino.think())
-                    # ====================================================================================================================
+                # Buscar el obstáculo más cercano delante del dino
+                    closest_obstacle = None
+                    min_dist = float('inf')
+                    for obstacle in obstacles:
+                        dist = obstacle.rect.x - dino.dino_rect.x
+                        if dist > 0 and dist < min_dist:
+                            min_dist = dist
+                            closest_obstacle = obstacle
+
+                    if closest_obstacle:
+                        dist_norm = min_dist / SCREEN_WIDTH
+                        obs_type = 0  # cactus
+                        if closest_obstacle.__class__.__name__ == 'Bird':
+                            obs_type = 1
+                        speed_norm = game_speed / 50
+
+                        inputs = [dist_norm, obs_type, speed_norm]
+                        # Agregá esta línea para imprimir inputs y tipo de obstáculo
+                        #print(f"Dino {dino.id} - Inputs: {inputs} - Obstáculo: {closest_obstacle.__class__.__name__}")
+                        
+                        action = dino.think(inputs)
+                        dino.update(action)
 
         if len(obstacles) == 0:
             if random.randint(0, 2) == 0:
@@ -179,6 +195,12 @@ def gameScreen():
                 for dino in population:
                     dino_params = dino.dino_rect
                     if dino.alive and dino_params.colliderect(obstacle_params):
+                        #if closest_obstacle.__class__.__name__ == 'Bird':
+                            #dino.score = points - 100  # Penalizar colisión con ave
+                        #else:
+                         #   dino.score = points
+                        #dino.alive = False
+                        
                         dino.score = points
                         dino.alive = False
 

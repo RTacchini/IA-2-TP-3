@@ -39,7 +39,7 @@ class NeuralNetwork:
         z2 = np.dot(h1, self.W2) + self.b2
         h2 = self.relu(z2)
 
-        z3 = np.dot(h2, self.W3) + self.b3
+        z3 = np.dot(h1, self.W3) + self.b3
 
         output = self.softmax(z3)  # Salida de la red neuronal
 

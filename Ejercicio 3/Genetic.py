@@ -1,4 +1,4 @@
-#import random
+import random
 import numpy as np
 
 def updateNetwork(population):
@@ -21,7 +21,7 @@ def updateNetwork(population):
         population[i].resetStatus()
 
     # Luego generas parejas y aplicas cruzas sólo a partir de elitismo_num
-    parejas = select_fittest(population, top_n=6)  # Se cambia la cnatidad de padres
+    parejas = select_fittest(population, top_n=7)  # Se cambia la cnatidad de padres
 
     # Nueva población temporal (si quieres mantenerlo puedes crear una lista)
     nuevos_individuos = []
@@ -45,6 +45,14 @@ def updateNetwork(population):
                 population[indice_reemplazo].b3 = pesos['b3'] 
                 population[indice_reemplazo].resetStatus()
                 indice_reemplazo += 1
+
+    # Generar los individuos restantes por mutación
+    while len(population) < 40:  # Asegúrate de que haya 40 individuos
+        # Elige aleatoriamente un individuo para mutar
+        individuo_a_mutar = random.choice(population)
+        # Realiza una mutación sobre este individuo
+        individuo_mutado = mutate_individual(individuo_a_mutar)
+        population.append(individuo_mutado)
 
 
 def select_fittest(population, top_n=6): #top_n cantidad de padres que elijo entre los mejores
@@ -77,7 +85,7 @@ def crossover(parent1_matrix, parent2_matrix):
     child = np.where(mask, parent1_matrix, parent2_matrix)
     return child
 
-def mutate(matrix, mutation_rate=0.2, mutation_strength=0.03):
+def mutate(matrix, mutation_rate=0.2, mutation_strength=0.03): #0.2 y 0.03 son valores de ejemplo, se pueden ajustar
     """
     Mutación gaussiana con probabilidad mutation_rate y magnitud mutation_strength.
     """
@@ -85,6 +93,20 @@ def mutate(matrix, mutation_rate=0.2, mutation_strength=0.03):
     noise = np.random.randn(*matrix.shape) * mutation_strength
     matrix[mutation_mask] += noise[mutation_mask]
     return matrix
+def mutate_individual(individuo):
+    """
+    Función que realiza la mutación sobre un individuo.
+    Esto muta los pesos y sesgos del individuo de acuerdo a la tasa de mutación.
+    """
+    # Mutación de los pesos y sesgos
+    individuo.W1 = mutate(individuo.W1)
+    individuo.b1 = mutate(individuo.b1)
+    individuo.W2 = mutate(individuo.W2)
+    individuo.b2 = mutate(individuo.b2)
+    individuo.W3 = mutate(individuo.W3)
+    individuo.b3 = mutate(individuo.b3)
+    
+    return individuo
 
 def evolve(parent1, parent2):
     # ===================== FUNCIÓN DE CRUCE Y MUTACIÓN =====================
